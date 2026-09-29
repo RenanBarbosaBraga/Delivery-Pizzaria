@@ -3,11 +3,12 @@ import os
 from dotenv import load_dotenv
 from fastapi import FastAPI
 from passlib.context import CryptContext
-from pydantic import deprecated
 
 load_dotenv()
 
 SECRET_KEY = os.getenv("SECRET_KEY")
+ALGORITHM = os.getenv("ALGORITHM")
+ACCESS_TOKEN_EXPIRE_MINUTES = int(os.getenv("ACCESS_TOKEN_EXPIRE_MINUTES", "30"))
 
 app = FastAPI()
 # para rodar o código, executar no terminal> uvicorn main:app --reload

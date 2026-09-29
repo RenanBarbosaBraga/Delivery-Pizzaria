@@ -18,7 +18,8 @@ async def pedidos():
 
 @order_routes.post("/pedido")
 async def criar_pedido(
-    pedido_schema: PedidoSchema, session: Session = Depends(pegar_sessao)
+    pedido_schema: PedidoSchema,
+    session: Session = Depends(pegar_sessao),  # noqa: B008
 ):
     novo_pedido = Pedido(usuario=pedido_schema.usuario)
     session.add(novo_pedido)

@@ -1,20 +1,31 @@
+from calendar import month
+from datetime import datetime, timedelta, timezone
+
 from fastapi import APIRouter, Depends, HTTPException
+from jose import JWTError, jwt
 from sqlalchemy.orm import Session
 
 from dependencies import pegar_sessao
-from main import bcrypt_context
+from main import ACCESS_TOKEN_EXPIRE_MINUTES, ALGORITHM, SECRET_KEY, bcrypt_context
 from models import Usuario
 from schemas import LoginSchema, UsuarioSchema
 
 auth_routes = APIRouter(prefix="/auth", tags=["auth"])
 
 
-def criar_token(id_usuario):
-    token = f"aosnbfaiobfnaiofbioasof{id_usuario}"
-    return token
+def criar_token(id_usuario, token_time=timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)):
+    expiration_date = datetime.now(timezone.utc) + token_time
+    token = {"sub": id_usuario, "exp": expiration_date}
+    encoded_jwt = jwt.encode(token, SECRET_KEY, ALGORITHM)  # type: ignore
+    return encoded_jwt
 
 
-def autenticar_usuario(email, senha, session):
+def verificar_token(token, session: Session = Depends(pegar_sessao)):
+    usuario = session.query(Usuario).filter_by(id=1).first()
+    return usuario
+
+
+def autenticar_usuario(email: str, senha: str, session: Session):
     usuario = session.query(Usuario).filter_by(email=email).first()
     if not usuario:
         return False
@@ -52,13 +63,17 @@ async def criar_conta(
 
 
 @auth_routes.post("/login")
-async def login(login_schema: LoginSchema, session: Session = Depends(pegar_sessao)):
+async def login(login_schema: LoginSchema, session: Session = Depends(pegar_sessao)):  # noqa: B008
     usuario = session.query(Usuario).filter_by(email=login_schema.email).first()
     if not usuario:
         raise HTTPException(status_code=400, detail="Usuario não encontrado")
-    else:
-        if not login_schema.senha == usuario.senha:
-            raise HTTPException(status_code=400, detail="Senha Incorreta")
-        else:
-            access_token = criar_token(usuario.id)
-            return {"access_token": access_token, "token_type": "Bearer"}
+    access_token = criar_token(usuario.id)
+    refresh_token = criar_token(usuario.id, token_time=timedelta(days=7))
+    return {"access_token": access_token, "token_type": "Bearer"}
+
+
+@auth_routes.get("/refresh")
+async def use_refresh_token(token, session: Session = Depends(pegar_sessao)):
+    usuario = verificar_token(token, session)
+    access_token = criar_token(id_usuario=usuario.id)
+    return {"access_token": access_token, "token_type": "Bearer"}
